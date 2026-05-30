@@ -258,6 +258,8 @@ async def load_all_models() -> None:
     models["iforest"]      = await asyncio.to_thread(joblib.load, paths["isolation_forest"])
     models["meta_learner"] = await asyncio.to_thread(joblib.load, paths["meta_learner"])
     models["normalizer"]   = await asyncio.to_thread(joblib.load, paths["normalizer"])
+    _ae_path   = str(paths["autoencoder"])
+    _lstm_path = str(paths["lstm_model"])
 
     models["autoencoder"] = await asyncio.to_thread(
         lambda: keras.models.load_model(_lstm_path, compile=False)
