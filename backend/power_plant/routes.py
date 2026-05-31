@@ -27,7 +27,7 @@ POST /trends                      → Rolling trend + correlation analysis
 """
 
 from __future__ import annotations
-
+from fastapi import APIRouter
 import asyncio
 import io
 import json
@@ -52,6 +52,8 @@ from tensorflow import keras
 
 import csv
 from pathlib import Path
+
+router = APIRouter()
 # ──────────────────────────────────────────────────────────────────────────────
 # Logging
 # ──────────────────────────────────────────────────────────────────────────────
@@ -734,14 +736,14 @@ class TrendRequest(BaseModel):
 
 
 
-@app.get("/", tags=["meta"])
+@router.get("/", tags=["meta"])
 async def root():
     return {"service": "Boiler Leak Detection API", "version": "1.2.0", "docs": "/docs"}
   
 # ──────────────────────────────────────────────────────────────────────────────
 # Routes — EXISTING (unchanged)
 # ──────────────────────────────────────────────────────────────────────────────
-@app.get("/health", tags=["meta"])
+@router.get("/health", tags=["meta"])
 async def health():
     loaded  = list(models.keys())
     missing = list(REQUIRED_MODEL_KEYS - set(loaded))
@@ -754,7 +756,7 @@ async def health():
     }
 
 
-@app.get("/models/info", tags=["meta"])
+@router.get("/models/info", tags=["meta"])
 async def model_info():
     _require_models()
     n = models["normalizer"]
@@ -779,12 +781,12 @@ async def model_info():
     }
 
 
-@app.get("/threshold", tags=["meta"])
+@router.get("/threshold", tags=["meta"])
 async def get_threshold():
     return {"threshold": _threshold}
 
 
-@app.put("/threshold", tags=["meta"])
+@router.put("/threshold", tags=["meta"])
 async def set_threshold(body: ThresholdRequest):
     global _threshold
     async with _threshold_lock:
@@ -794,7 +796,7 @@ async def set_threshold(body: ThresholdRequest):
     return {"old_threshold": old, "new_threshold": body.threshold}
 
 
-@app.post("/predict", response_model=PredictResponse, tags=["inference"])
+@router.post("/predict", response_model=PredictResponse, tags=["inference"])
 async def predict(body: PredictRequest):
     _require_models()
     df_raw     = _readings_to_df(body.readings)
@@ -815,7 +817,7 @@ async def predict(body: PredictRequest):
     )
 
 
-@app.post("/predict/csv", tags=["inference"])
+@router.post("/predict/csv", tags=["inference"])
 async def predict_csv(
     file: UploadFile = File(...),
     faults_only: bool = Query(False),
@@ -863,7 +865,7 @@ async def predict_csv(
 # ──────────────────────────────────────────────────────────────────────────────
 
 # ── 1. ROOT CAUSE ANALYSIS ────────────────────────────────────────────────────
-@app.post("/rca", tags=["rca"])
+@router.post("/rca", tags=["rca"])
 async def root_cause_analysis(body: RCARequest):
     """
     Compute per-sensor blame scores for alarmed windows using XGBoost native SHAP
@@ -1019,7 +1021,7 @@ async def root_cause_analysis(body: RCARequest):
 
 
 # ── 2. SENSOR OPTIMISATION ────────────────────────────────────────────────────
-@app.post("/optimize/sensor", tags=["optimization"])
+@router.post("/optimize/sensor", tags=["optimization"])
 async def optimize_sensor(body: SensorOptimizeRequest):
     """
     Compute optimal sensor adjustments to bring ensemble risk score below target.
@@ -1128,7 +1130,7 @@ async def optimize_sensor(body: SensorOptimizeRequest):
 
 
 # ── 3. ENERGY ANALYSIS ───────────────────────────────────────────────────────
-@app.post("/energy/analysis", tags=["energy"])
+@router.post("/energy/analysis", tags=["energy"])
 async def energy_analysis(body: EnergyAnalysisRequest):
     """
     Compute steam generation efficiency, heat rate, blowdown loss, spray waste,
@@ -1194,7 +1196,7 @@ async def energy_analysis(body: EnergyAnalysisRequest):
 
 
 # ── 4. SIMULATION (WHAT-IF) ───────────────────────────────────────────────────
-@app.post("/simulate", tags=["simulation"])
+@router.post("/simulate", tags=["simulation"])
 async def simulate(body: SimulationRequest):
     _require_models()
     input_values = body.model_dump()
@@ -1257,7 +1259,7 @@ async def simulate(body: SimulationRequest):
         "to_normalize_risk": to_normalize,
     }
 # ── 5. CSV BULK WITH OPTIMISATION ─────────────────────────────────────────────
-@app.post("/predict/csv/optimized", tags=["inference", "optimization"])
+@router.post("/predict/csv/optimized", tags=["inference", "optimization"])
 async def predict_csv_optimized(
     file: UploadFile = File(...),
     include_energy: bool = Query(True),
@@ -1469,7 +1471,7 @@ def _run_bulk_inference(
 
 
 # ── 6. SHAP EXPLAINABILITY ────────────────────────────────────────────────────
-@app.post("/explain/shap", tags=["explainability"])
+@router.post("/explain/shap", tags=["explainability"])
 async def explain_shap(body: SHAPRequest):
     """
     Return XGBoost native SHAP values for feature-level and sensor-level importance.
@@ -1556,7 +1558,7 @@ async def explain_shap(body: SHAPRequest):
 
 
 # ── 7. LEAD-TIME PREDICTION ───────────────────────────────────────────────────
-@app.post("/lead-time", tags=["monitoring"])
+@router.post("/lead-time", tags=["monitoring"])
 async def lead_time(body: LeadTimeRequest):
     """
     Estimate time remaining before boiler tube failure based on risk score trend.
@@ -1654,7 +1656,7 @@ async def lead_time(body: LeadTimeRequest):
 
 
 # ── 8. DASHBOARD PERFORMANCE ──────────────────────────────────────────────────
-@app.get("/dashboard/performance", tags=["dashboard"])
+@router.get("/dashboard/performance", tags=["dashboard"])
 async def dashboard_performance():
     """
     Return pre-computed model performance KPIs + live model metadata for the
@@ -1717,7 +1719,7 @@ async def dashboard_performance():
 
 
 # ── 9. SENSOR HEALTH CHECK ────────────────────────────────────────────────────
-@app.post("/sensors/health-check", tags=["monitoring"])
+@router.post("/sensors/health-check", tags=["monitoring"])
 async def sensor_health_check(body: SensorHealthRequest):
     """
     Rule-based sensor health card — no ML inference required.
@@ -1771,7 +1773,7 @@ async def sensor_health_check(body: SensorHealthRequest):
 
 
 # ── 10. TREND ANALYSIS ────────────────────────────────────────────────────────
-@app.post("/trends", tags=["monitoring"])
+@router.post("/trends", tags=["monitoring"])
 async def trend_analysis(body: TrendRequest):
     """
     Compute rolling trend statistics, linear slope, min/max, and risk correlation
@@ -2211,7 +2213,7 @@ async def compute_full_analysis(
     }
     
 
-@app.post("/predict/enriched_full", response_model=EnrichedFullResponse)
+@router.post("/predict/enriched_full", response_model=EnrichedFullResponse)
 async def predict_enriched_full(body: PredictRequest):
     full_data = await compute_full_analysis(body.readings, body.context)
     return EnrichedFullResponse(**full_data)
@@ -2229,7 +2231,7 @@ PROJECT_ROOT = Path(__file__).parent.parent.parent  # goes up 3 levels
 CSV_PATH = os.getenv("TEST_CSV_PATH", str(PROJECT_ROOT / "Data" / "boiler_testing_data_10k.csv"))
 # ──────────────────────────────────────────────────────────────────
 
-@app.websocket("/ws/stream")
+@router.websocket("/ws/stream")
 # At the top of stream_test_data, after accept()
 async def _handle_incoming():
     """Drain any messages from the client (pings etc) without blocking."""

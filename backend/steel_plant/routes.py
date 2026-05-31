@@ -49,7 +49,7 @@
 """
 
 from __future__ import annotations
-
+from fastapi import APIRouter
 import asyncio
 import base64
 import io
@@ -94,7 +94,7 @@ REQUIRED_MODEL_KEYS = {
 # point HF_HOME / HUGGINGFACE_HUB_CACHE to a persistent volume in production
 # so files survive container restarts and are never re-downloaded.
 from huggingface_hub import hf_hub_download
-
+router = APIRouter()
 HF_REPO_ID   = "ZOROD/Steel-plant-optimization"
 HF_REPO_TYPE = "model"
 VERSION="V10"
@@ -1647,7 +1647,7 @@ app.add_middleware(
 # ── CORE ENDPOINTS ────────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/health", tags=["core"])
+@router.get("/health", tags=["core"])
 async def health():
     """Service status + model load summary."""
     return {
@@ -1672,7 +1672,7 @@ async def health():
     }
 
 
-@app.get("/models/info", tags=["core"])
+@router.get("/models/info", tags=["core"])
 async def models_info():
     """Detailed metadata for every loaded model artifact."""
     _require_models()
@@ -1700,12 +1700,12 @@ async def models_info():
     return info
 
 
-@app.get("/threshold/anomaly", tags=["core"])
+@router.get("/threshold/anomaly", tags=["core"])
 async def get_threshold():
     return {"threshold": _anomaly_threshold, "description": "Combined anomaly score threshold (0–1)"}
 
 
-@app.put("/threshold/anomaly", tags=["core"])
+@router.put("/threshold/anomaly", tags=["core"])
 async def set_threshold(body: ThresholdUpdate):
     global _anomaly_threshold
     async with _threshold_lock:
@@ -1718,7 +1718,7 @@ async def set_threshold(body: ThresholdUpdate):
 # ── PREDICTION ENDPOINTS ──────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/predict", tags=["prediction"])
+@router.post("/predict", tags=["prediction"])
 async def predict(body: PredictRequest):
     """
     Predict all 4 KPIs for every row in `readings`.
@@ -1774,7 +1774,7 @@ async def predict(body: PredictRequest):
     }
 
 
-@app.post("/predict/csv", tags=["prediction"])
+@router.post("/predict/csv", tags=["prediction"])
 async def predict_csv(
     file: UploadFile = File(...),
     faults_only: bool = Query(False, description="If true, return only anomalous windows"),
@@ -1871,7 +1871,7 @@ async def predict_csv(
     }
 
 
-@app.post("/predict/enriched", tags=["prediction"])
+@router.post("/predict/enriched", tags=["prediction"])
 async def predict_enriched(body: PredictRequest):
     """
     All-in-one endpoint: prediction + RCA + quick optimization for every window.
@@ -1923,7 +1923,7 @@ async def predict_enriched(body: PredictRequest):
 # ── OPTIMIZATION ENDPOINTS ────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/optimize", tags=["optimization"])
+@router.post("/optimize", tags=["optimization"])
 async def optimize(body: OptimizeRequest):
     """
     Full TPE(100) → CMA-ES(400) optimization.
@@ -1952,7 +1952,7 @@ async def optimize(body: OptimizeRequest):
     }
 
 
-@app.post("/optimize/quick", tags=["optimization"])
+@router.post("/optimize/quick", tags=["optimization"])
 async def optimize_quick(body: OptimizeRequest):
     """
     Fast TPE(30) → CMA(70) optimization for real-time UI updates.
@@ -1979,7 +1979,7 @@ async def optimize_quick(body: OptimizeRequest):
     }
 
 
-@app.post("/simulate", tags=["optimization"])
+@router.post("/simulate", tags=["optimization"])
 async def simulate(body: SimulateRequest):
     """
     What-if simulation: change specific setpoints and see the predicted KPI change.
@@ -2048,7 +2048,7 @@ async def simulate(body: SimulateRequest):
     }
 
 
-@app.post("/predict/csv/optimized", tags=["optimization"])
+@router.post("/predict/csv/optimized", tags=["optimization"])
 async def predict_csv_optimized(
     file: UploadFile = File(...),
     top_k: int = Query(3, ge=1, le=5),
@@ -2127,7 +2127,7 @@ async def predict_csv_optimized(
 # ── ANALYSIS ENDPOINTS ────────────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.post("/rca", tags=["analysis"])
+@router.post("/rca", tags=["analysis"])
 async def rca(body: RCARequest):
     """
     Root Cause Analysis for the last window in `readings`.
@@ -2151,7 +2151,7 @@ async def rca(body: RCARequest):
     return result
 
 
-@app.post("/shap/explain", tags=["analysis"])
+@router.post("/shap/explain", tags=["analysis"])
 async def shap_explain(body: PredictRequest):
     """
     SHAP waterfall explanation for the last window in `readings`.
@@ -2197,7 +2197,7 @@ async def shap_explain(body: PredictRequest):
     }
 
 
-@app.post("/anomaly/detect", tags=["analysis"])
+@router.post("/anomaly/detect", tags=["analysis"])
 async def anomaly_detect(body: PredictRequest):
     """
     Run IsolationForest anomaly detection on all provided readings.
@@ -2245,7 +2245,7 @@ async def anomaly_detect(body: PredictRequest):
     }
 
 
-@app.post("/energy/analysis", tags=["analysis"])
+@router.post("/energy/analysis", tags=["analysis"])
 async def energy_analysis(body: PredictRequest):
     """
     Detailed energy breakdown analysis for the provided sensor window.
@@ -2305,7 +2305,7 @@ async def energy_analysis(body: PredictRequest):
     }
 
 
-@app.post("/trends", tags=["analysis"])
+@router.post("/trends", tags=["analysis"])
 async def trends(body: PredictRequest):
     """
     Rolling trend and sensor correlation analysis for the provided window.
@@ -2345,7 +2345,7 @@ async def trends(body: PredictRequest):
     }
 
 
-@app.post("/sensors/health-check", tags=["analysis"])
+@router.post("/sensors/health-check", tags=["analysis"])
 async def sensors_health_check(body: PredictRequest):
     """Rule-based sensor range checker for all 13 controllable setpoints."""
     _require_models()
@@ -2394,7 +2394,7 @@ async def sensors_health_check(body: PredictRequest):
 # ── VISUALIZATION ENDPOINTS ───────────────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/charts/backtest", tags=["charts"])
+@router.get("/charts/backtest", tags=["charts"])
 async def chart_backtest():
     """Return the pre-computed backtest PNG (base64) from the V10 plots dir."""
     path = PLOTS_DIR / f"01_backtest_{VERSION}.png"
@@ -2408,7 +2408,7 @@ async def chart_backtest():
     return {"chart_base64": None, "error": "No backtest chart available."}
 
 
-@app.get("/charts/shap", tags=["charts"])
+@router.get("/charts/shap", tags=["charts"])
 async def chart_shap():
     """Return the pre-computed SHAP beeswarm PNG (base64) from the V10 plots dir."""
     path = PLOTS_DIR / f"02_shap_beeswarm_{VERSION}.png"
@@ -2419,14 +2419,14 @@ async def chart_shap():
     return {"chart_base64": None, "error": "SHAP chart not found. Run the V10 notebook first."}
 
 
-@app.get("/charts/model-performance", tags=["charts"])
+@router.get("/charts/model-performance", tags=["charts"])
 async def chart_model_performance():
     """Generate model performance chart from backtest CSV."""
     chart = _chart_model_performance() if MPL_AVAILABLE else None
     return {"chart_base64": chart, "source": "generated"}
 
 
-@app.post("/charts/live", tags=["charts"])
+@router.post("/charts/live", tags=["charts"])
 async def chart_live(body: ChartRequest):
     """Generate a live energy timeline chart from current readings."""
     _require_models()
@@ -2436,7 +2436,7 @@ async def chart_live(body: ChartRequest):
     return {"chart_base64": chart, "windows": len(recs["predictions"])}
 
 
-@app.post("/charts/sensor-trends", tags=["charts"])
+@router.post("/charts/sensor-trends", tags=["charts"])
 async def chart_sensor_trends(body: ChartRequest):
     """Generate a multi-panel sensor trend chart."""
     df = _readings_to_df(body.readings)
@@ -2445,7 +2445,7 @@ async def chart_sensor_trends(body: ChartRequest):
     return {"chart_base64": chart, "sensors_plotted": sensors}
 
 
-@app.post("/charts/pareto", tags=["charts"])
+@router.post("/charts/pareto", tags=["charts"])
 async def chart_pareto(body: OptimizeRequest):
     """Run optimization and plot the energy vs yield vs production Pareto front."""
     _require_models()
@@ -2462,7 +2462,7 @@ async def chart_pareto(body: OptimizeRequest):
     }
 
 
-@app.post("/charts/rca", tags=["charts"])
+@router.post("/charts/rca", tags=["charts"])
 async def chart_rca(body: RCARequest):
     """RCA waterfall chart for the current window."""
     _require_models()
@@ -2478,7 +2478,7 @@ async def chart_rca(body: RCARequest):
 # ── DASHBOARD ENDPOINTS ───────────────────────────────────────────════════════
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.get("/dashboard", tags=["dashboard"])
+@router.get("/dashboard", tags=["dashboard"])
 async def dashboard():
     """
     Combined dashboard payload for the client frontend.
@@ -2505,7 +2505,7 @@ async def dashboard():
     }
 
 
-@app.get("/dashboard/performance", tags=["dashboard"])
+@router.get("/dashboard/performance", tags=["dashboard"])
 async def dashboard_performance():
     """Model performance KPI card data for the frontend."""
     bt = _perf_cache.get("backtest", {})
@@ -2532,7 +2532,7 @@ async def dashboard_performance():
 # ── WEBSOCKET — LIVE SENSOR STREAM ───────────────────────────────────────────
 # ══════════════════════════════════════════════════════════════════════════════
 
-@app.websocket("/ws/stream")
+@router.websocket("/ws/stream")
 async def stream_live_data(websocket: WebSocket):
     """
     Streams rows from the test CSV one at a time, simulating a live sensor feed.
