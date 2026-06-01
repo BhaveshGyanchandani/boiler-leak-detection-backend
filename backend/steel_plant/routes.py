@@ -2715,12 +2715,12 @@ async def stream_live_data(websocket: WebSocket):
 # ══════════════════════════════════════════════════════════════════════════════
 # ENTRY POINT
 # ══════════════════════════════════════════════════════════════════════════════
-if __name__ == "__main__":
-    port = int(os.getenv("PORT", 8002))
-    uvicorn.run(
-        "main:app",
-        host    = "0.0.0.0",
-        port    = port,
-        reload  = False,
-        workers = 1,         # single worker — models are shared global state
-    )
+# if __name__ == "__main__":
+#     port = int(os.getenv("PORT", 8002))
+#     uvicorn.run(
+#         "main:app",
+#         host    = "0.0.0.0",
+#         port    = port,
+#         reload  = False,
+#         workers = 1,         # single worker — models are shared global state
+#     )
