@@ -27,14 +27,12 @@ POST /trends                      → Rolling trend + correlation analysis
 """
 
 from __future__ import annotations
-from fastapi import APIRouter
 import asyncio
 import csv
 import io
 import json
 import logging
 import os
-import re
 import time
 from pathlib import Path
 from typing import Any, Dict, List, Optional
@@ -44,12 +42,10 @@ import joblib
 import numpy as np
 import pandas as pd
 import xgboost as xgb
-from fastapi import File, HTTPException, UploadFile, status, WebSocket, Query
+from fastapi import FastAPI, File, HTTPException, UploadFile, status, WebSocket, Query
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field, validator
 from tensorflow import keras
-from fastapi.middleware.cors import CORSMiddleware
-
-router = APIRouter()
 # ──────────────────────────────────────────────────────────────────────────────
 # Loggingapp.
 # ──────────────────────────────────────────────────────────────────────────────
@@ -74,6 +70,11 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+# Now define routes with @app
+@app.get("/ping")
+async def ping():
+    return {"status": "ok"}
 # ──────────────────────────────────────────────────────────────────────────────
 # Constants — must match the notebook exactly
 # ──────────────────────────────────────────────────────────────────────────────
