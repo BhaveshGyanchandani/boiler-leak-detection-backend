@@ -82,6 +82,7 @@ router = APIRouter()
 # ── Version — declared here so HF_MODEL_FILES f-strings resolve correctly ─────
 VERSION = "V10"
 
+
 # ── Optional heavy imports (graceful fallback if not installed) ───────────────
 
 # All artifacts that must be present before the API accepts requests
@@ -161,55 +162,80 @@ def _hf_path(key: str) -> Path:
     """Synchronous convenience alias — same as _hf_fetch."""
     return _hf_fetch(key)
   
-  
-try:
-    import lightgbm as lgb
-    LGB_AVAILABLE = True
-except ImportError:
-    LGB_AVAILABLE = False
 
-try:
-    import xgboost as xgb
-    XGB_AVAILABLE = True
-except ImportError:
-    XGB_AVAILABLE = False
+# Flags only — actual imports happen inside load_all_models()
+# so they never block uvicorn from binding the port at startup
+LGB_AVAILABLE    = False
+XGB_AVAILABLE    = False
+CAT_AVAILABLE    = False
+SHAP_AVAILABLE   = False
+OPTUNA_AVAILABLE = False
+TORCH_AVAILABLE  = False
+MPL_AVAILABLE    = False
 
-try:
-    from catboost import CatBoostRegressor
-    CAT_AVAILABLE = True
-except ImportError:
-    CAT_AVAILABLE = False
+# Placeholders so the rest of the module doesn't crash on NameError
+lgb = None
+xgb = None
+CatBoostRegressor = None
+shap = None
+optuna = None
+CmaEsSampler = None
+TPESampler = None
+torch = None
+nn = None
+F = None
+plt = None
+gridspec = None
+DEVICE = None
 
-try:
-    import shap
-    SHAP_AVAILABLE = True
-except ImportError:
-    SHAP_AVAILABLE = False
+# try:
+#     import lightgbm as lgb
+#     LGB_AVAILABLE = True
+# except ImportError:
+#     LGB_AVAILABLE = False
 
-try:
-    import optuna
-    from optuna.samplers import CmaEsSampler, TPESampler
-    optuna.logging.set_verbosity(optuna.logging.WARNING)
-    OPTUNA_AVAILABLE = True
-except ImportError:
-    OPTUNA_AVAILABLE = False
+# try:
+#     import xgboost as xgb
+#     XGB_AVAILABLE = True
+# except ImportError:
+#     XGB_AVAILABLE = False
 
-try:
-    import torch
-    import torch.nn as nn
-    import torch.nn.functional as F
-    TORCH_AVAILABLE = True
-except ImportError:
-    TORCH_AVAILABLE = False
+# try:
+#     from catboost import CatBoostRegressor
+#     CAT_AVAILABLE = True
+# except ImportError:
+#     CAT_AVAILABLE = False
 
-try:
-    import matplotlib
-    matplotlib.use("Agg")
-    import matplotlib.pyplot as plt
-    import matplotlib.gridspec as gridspec
-    MPL_AVAILABLE = True
-except ImportError:
-    MPL_AVAILABLE = False
+# try:
+#     import shap
+#     SHAP_AVAILABLE = True
+# except ImportError:
+#     SHAP_AVAILABLE = False
+
+# try:
+#     import optuna
+#     from optuna.samplers import CmaEsSampler, TPESampler
+#     optuna.logging.set_verbosity(optuna.logging.WARNING)
+#     OPTUNA_AVAILABLE = True
+# except ImportError:
+#     OPTUNA_AVAILABLE = False
+
+# try:
+#     import torch
+#     import torch.nn as nn
+#     import torch.nn.functional as F
+#     TORCH_AVAILABLE = True
+# except ImportError:
+#     TORCH_AVAILABLE = False
+
+# try:
+#     import matplotlib
+#     matplotlib.use("Agg")
+#     import matplotlib.pyplot as plt
+#     import matplotlib.gridspec as gridspec
+#     MPL_AVAILABLE = True
+# except ImportError:
+#     MPL_AVAILABLE = False
 
 
 
@@ -501,6 +527,8 @@ def _try_load(path: Path, loader=None):
         return None
 
 
+
+
 async def load_all_models() -> None:
     """
     Download (if not already cached) and load all V10 weight files into the
@@ -516,10 +544,11 @@ async def load_all_models() -> None:
       peak concurrent connections to the Hub stay low.
     """
     logger.info("Loading V10 steel plant models from HuggingFace (%s) …", HF_REPO_ID)
-    global LGB_AVAILABLE, XGB_AVAILABLE, CAT_AVAILABLE
-    global TORCH_AVAILABLE, MPL_AVAILABLE, OPTUNA_AVAILABLE, SHAP_AVAILABLE
+        global LGB_AVAILABLE, XGB_AVAILABLE, CAT_AVAILABLE
+    global SHAP_AVAILABLE, OPTUNA_AVAILABLE, TORCH_AVAILABLE, MPL_AVAILABLE
+    global lgb, xgb, CatBoostRegressor, shap, optuna
+    global CmaEsSampler, TPESampler, torch, nn, F, plt, gridspec, DEVICE
 
-    # Import heavy libs here, not at module top
     try:
         import lightgbm as lgb
         LGB_AVAILABLE = True
@@ -527,15 +556,8 @@ async def load_all_models() -> None:
         pass
 
     try:
-        import xgboost
+        import xgboost as xgb
         XGB_AVAILABLE = True
-    except ImportError:
-        pass
-
-    try:
-        import torch
-        import torch.nn as nn
-        TORCH_AVAILABLE = True
     except ImportError:
         pass
 
@@ -545,6 +567,37 @@ async def load_all_models() -> None:
     except ImportError:
         pass
 
+    try:
+        import shap
+        SHAP_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        import optuna
+        from optuna.samplers import CmaEsSampler, TPESampler
+        optuna.logging.set_verbosity(optuna.logging.WARNING)
+        OPTUNA_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        import torch
+        import torch.nn as nn
+        import torch.nn.functional as F
+        TORCH_AVAILABLE = True
+        DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    except ImportError:
+        pass
+
+    try:
+        import matplotlib
+        matplotlib.use("Agg")
+        import matplotlib.pyplot as plt
+        import matplotlib.gridspec as gridspec
+        MPL_AVAILABLE = True
+    except ImportError:
+        pass
     # ── Scaler ────────────────────────────────────────────────────────────────
     try:
         scaler_path = await asyncio.to_thread(_hf_fetch, "scaler")
