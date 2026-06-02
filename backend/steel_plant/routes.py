@@ -544,7 +544,7 @@ async def load_all_models() -> None:
       peak concurrent connections to the Hub stay low.
     """
     logger.info("Loading V10 steel plant models from HuggingFace (%s) …", HF_REPO_ID)
-        global LGB_AVAILABLE, XGB_AVAILABLE, CAT_AVAILABLE
+    global LGB_AVAILABLE, XGB_AVAILABLE, CAT_AVAILABLE
     global SHAP_AVAILABLE, OPTUNA_AVAILABLE, TORCH_AVAILABLE, MPL_AVAILABLE
     global lgb, xgb, CatBoostRegressor, shap, optuna
     global CmaEsSampler, TPESampler, torch, nn, F, plt, gridspec, DEVICE
