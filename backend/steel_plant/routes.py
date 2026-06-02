@@ -516,6 +516,34 @@ async def load_all_models() -> None:
       peak concurrent connections to the Hub stay low.
     """
     logger.info("Loading V10 steel plant models from HuggingFace (%s) …", HF_REPO_ID)
+    global LGB_AVAILABLE, XGB_AVAILABLE, CAT_AVAILABLE
+    global TORCH_AVAILABLE, MPL_AVAILABLE, OPTUNA_AVAILABLE, SHAP_AVAILABLE
+
+    # Import heavy libs here, not at module top
+    try:
+        import lightgbm as lgb
+        LGB_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        import xgboost
+        XGB_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        import torch
+        import torch.nn as nn
+        TORCH_AVAILABLE = True
+    except ImportError:
+        pass
+
+    try:
+        from catboost import CatBoostRegressor
+        CAT_AVAILABLE = True
+    except ImportError:
+        pass
 
     # ── Scaler ────────────────────────────────────────────────────────────────
     try:
@@ -2445,6 +2473,9 @@ async def sensors_health_check(body: PredictRequest):
 
 @router.get("/charts/backtest", tags=["charts"])
 async def chart_backtest():
+    import matplotlib
+    matplotlib.use("Agg")
+    import matplotlib.pyplot as plt
     """Return the pre-computed backtest PNG (base64) from the V10 plots dir."""
     path = PLOTS_DIR / f"01_backtest_{VERSION}.png"
     if path.exists():
